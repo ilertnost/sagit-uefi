@@ -41,81 +41,17 @@ STATIC CONST EFI_GUID  mStatusGuid = {
 
 STATIC CHAR16  mStatusName[] = L"SagitRamDisk";
 
-/* Protocols published by the vendor PMIC stack (SPMI + PmicDxe) that the
- * patched ButtonsDxe consumes; locate them to see how far the chain got. */
-STATIC EFI_GUID  mQcomSpmiGuid = {
-  0xAE37B942, 0x457F, 0x4C91,
-  { 0xA1, 0x96, 0xD9, 0x66, 0x9F, 0xD3, 0x47, 0xA3 }
-};
-
-STATIC EFI_GUID  mQcomPmAppGuid = {
-  0x9BA45B66, 0xEFA4, 0x441C,
-  { 0xA3, 0xE4, 0xED, 0x22, 0x24, 0x78, 0x6B, 0xE2 }
-};
-
-STATIC
-VOID
-PrintButtons (VOID)
-{
-  EFI_GUID  *StiGuids[2] = {
-    (EFI_GUID *)&gEfiSimpleTextInProtocolGuid,
-    (EFI_GUID *)&gEfiSimpleTextInputExProtocolGuid
-  };
-  UINTN       Index;
-  EFI_HANDLE  *Buffer;
-  UINTN       Count;
-  VOID        *Proto;
-  EFI_STATUS  Status;
-
-  for (Index = 0; Index < 2; Index++) {
-    Status = gBS->LocateHandleBuffer (ByProtocol, StiGuids[Index], NULL, &Count, &Buffer);
-    if (EFI_ERROR (Status)) {
-      Print (L"sti[%u]: none (%r)\n", Index, Status);
-    } else {
-      Print (L"sti[%u]: %u handle(s)\n", Index, Count);
-      FreePool (Buffer);
-    }
-  }
-
-  Status = gBS->LocateProtocol (&mQcomSpmiGuid, NULL, &Proto);
-  Print (L"spmi protocol: %r\n", Status);
-  Status = gBS->LocateProtocol (&mQcomPmAppGuid, NULL, &Proto);
-  Print (L"pmic protocol: %r\n", Status);
-}
-
-/**
-  Take one key sample by hand.
-
-  The wait loop below holds the task priority at TPL_HIGH_LEVEL inside
-  gBS->Stall(), where no timer event runs, so the keys are sampled through
-  the driver's own refresh entry point instead.
-**/
-STATIC
-VOID
-SampleKeys (
-  VOID
-  )
-{
-  SAGIT_KEY_STATUS  *Keys;
-
-  if (EFI_ERROR (gBS->LocateProtocol ((EFI_GUID *)&gSagitKeyInputStatusGuid, NULL, (VOID **)&Keys))) {
-    return;
-  }
-
-  if (Keys->Refresh != NULL) {
-    Keys->Refresh (Keys);
-  }
-}
-
 /**
   Print whether the console input list names the key device.
 
   A driver that reads the keys but never reaches ConIn is invisible to the
   menu, and without a serial console the variable is the only place to see
-  the difference.
+  the difference. Silence means the path is there.
+
+  @retval TRUE  The key device is listed in ConIn.
 **/
 STATIC
-VOID
+BOOLEAN
 PrintConIn (
   VOID
   )
@@ -133,19 +69,19 @@ PrintConIn (
   Status = gRT->GetVariable (L"ConIn", &gEfiGlobalVariableGuid, &Attributes, &Size, NULL);
   if (Status != EFI_BUFFER_TOO_SMALL) {
     Print (L"conin: %r\n", Status);
-    return;
+    return FALSE;
   }
 
   Buffer = AllocatePool (Size);
   if (Buffer == NULL) {
-    return;
+    return FALSE;
   }
 
   Status = gRT->GetVariable (L"ConIn", &gEfiGlobalVariableGuid, &Attributes, &Size, Buffer);
   if (EFI_ERROR (Status)) {
     FreePool (Buffer);
     Print (L"conin: %r\n", Status);
-    return;
+    return FALSE;
   }
 
   for (At = 0; At + sizeof (Guid) <= Size; At++) {
@@ -155,22 +91,24 @@ PrintConIn (
     }
   }
 
-  Print (L"conin: %u bytes, keys listed=%u\n", (UINTN)Size, (UINTN)Listed);
+  if (!Listed) {
+    Print (L"conin: %u bytes, keys missing\n", (UINTN)Size);
+  }
+
   FreePool (Buffer);
+  return Listed;
 }
 
 /**
-  Print what the hardware key driver sees.
+  Print the key driver only when it is not healthy.
 
-  Without a serial console this is the only way to tell a dead driver from a
-  key that never reaches the console. The first line names the driver state,
-  the second the arbiter and the pads; LevelsOnly prints the live sample the
-  wait loop below repeats.
+  The keys work, so a healthy boot says nothing about them: the screen is
+  for the payload handoff, not for a driver that has nothing to report.
 **/
 STATIC
 VOID
 PrintKeys (
-  IN BOOLEAN  LevelsOnly
+  VOID
   )
 {
   SAGIT_KEY_STATUS  *Keys;
@@ -178,43 +116,34 @@ PrintKeys (
 
   Status = gBS->LocateProtocol ((EFI_GUID *)&gSagitKeyInputStatusGuid, NULL, (VOID **)&Keys);
   if (EFI_ERROR (Status) || (Keys->Signature != SAGIT_KEY_STATUS_SIGNATURE)) {
-    if (!LevelsOnly) {
-      Print (L"keys: driver not loaded (%r)\n", Status);
-    }
-
+    Print (L"keys: driver not loaded (%r)\n", Status);
+    PrintConIn ();
     return;
   }
 
-  if (LevelsOnly) {
+  if ((Keys->Stage != SAGIT_KEY_STAGE_READY) ||
+      (Keys->Failures != 0) ||
+      (Keys->VolumeUpApid == SAGIT_KEY_APID_NONE))
+  {
     Print (
-      L"keys: sample=0x%x PWR=%u VOL-=%u VOL+=%u  pon=0x%02x gpio=0x%02x sent=%u\n",
-      (UINTN)Keys->Sample,
-      (UINTN)((Keys->Sample & SAGIT_KEY_SAMPLE_POWER) != 0),
-      (UINTN)((Keys->Sample & SAGIT_KEY_SAMPLE_VOLUME_DOWN) != 0),
-      (UINTN)((Keys->Sample & SAGIT_KEY_SAMPLE_VOLUME_UP) != 0),
+      L"keys: stage=%u arbiter=0x%08x pon=%u volup=%u\n",
+      (UINTN)Keys->Stage,
+      (UINTN)Keys->ArbiterVersion,
+      (UINTN)Keys->PonApid,
+      (UINTN)Keys->VolumeUpApid
+      );
+    Print (
+      L"keys: pon=0x%02x gpio=0x%02x mode/en=0x%04x samples=%u fail=%u sent=%u\n",
       (UINTN)Keys->PonLevels,
       (UINTN)Keys->VolumeUpLevels,
+      (UINTN)Keys->VolumeUpConfig,
+      (UINTN)Keys->Samples,
+      (UINTN)Keys->Failures,
       (UINTN)Keys->Keys
       );
-    return;
   }
 
-  Print (
-    L"keys: stage=%u arbiter=0x%08x pon=%u volup=%u\n",
-    (UINTN)Keys->Stage,
-    (UINTN)Keys->ArbiterVersion,
-    (UINTN)Keys->PonApid,
-    (UINTN)Keys->VolumeUpApid
-    );
-  Print (
-    L"keys: pon=0x%02x gpio=0x%02x mode/en=0x%04x samples=%u fail=%u sent=%u\n",
-    (UINTN)Keys->PonLevels,
-    (UINTN)Keys->VolumeUpLevels,
-    (UINTN)Keys->VolumeUpConfig,
-    (UINTN)Keys->Samples,
-    (UINTN)Keys->Failures,
-    (UINTN)Keys->Keys
-    );
+  PrintConIn ();
 }
 
 STATIC
@@ -557,7 +486,6 @@ OnReadyToBoot (
   )
 {
   EFI_STATUS  Status;
-  UINTN       Index;
 
   Status = gST->ConOut->ClearScreen (gST->ConOut);
   if (EFI_ERROR (Status)) {
@@ -566,28 +494,12 @@ OnReadyToBoot (
 
   Print (L"=== SAGIT DIAG ===\n");
   PrintStatus ();
-  PrintButtons ();
-  PrintKeys (FALSE);
-  PrintConIn ();
+  PrintKeys ();
   PrintFdt ();
   PrintProbe ();
   ScanForPayload ();
-  Print (L"=== waiting %u s: press power, volume up, volume down ===\n", DIAG_WAIT_SECONDS);
-
-  for (Index = 0; Index < DIAG_WAIT_SECONDS; Index++) {
-    UINTN  Round;
-
-    //
-    // Sample every 50 ms and show the result once a second: a press that
-    // lasts two samples is visible on the next line.
-    //
-    for (Round = 0; Round < 20; Round++) {
-      gBS->Stall (50 * 1000);
-      SampleKeys ();
-    }
-
-    PrintKeys (TRUE);
-  }
+  Print (L"=== waiting %u s ===\n", DIAG_WAIT_SECONDS);
+  gBS->Stall (DIAG_WAIT_SECONDS * 1000 * 1000);
 }
 
 EFI_STATUS
