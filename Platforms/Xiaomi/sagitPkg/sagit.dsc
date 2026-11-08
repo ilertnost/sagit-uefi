@@ -20,6 +20,13 @@
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = sagitPkg/sagit.fdf
 
+  #
+  # 1 = load the stock PMIC stack (SPMI, PmicDxe, patched ButtonsDxe) so the
+  #     volume/power keys reach the boot manager as SimpleTextIn. These
+  #     drivers do not touch the display pipeline. 0 = Mu only.
+  #
+  SAGIT_VENDOR_PMIC              = 1
+
 !include Silicon/QC/Msm8998/Msm8998Pkg.dsc.inc
 
 [PcdsFixedAtBuild]

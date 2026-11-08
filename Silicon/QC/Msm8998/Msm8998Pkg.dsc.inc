@@ -61,4 +61,3 @@
   #
   # Custom Drivers
   #
-  QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf

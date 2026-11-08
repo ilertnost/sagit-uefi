@@ -18,8 +18,17 @@
 [LibraryClasses]
   DebugLib
   UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  DevicePathLib
+  MemoryAllocationLib
   RfsProtectionLib
 
 [Guids]
   gUsbControllerInitGuid
   gSdCardInitGuid
+  gEfiGlobalVariableGuid
+
+[Protocols]
+  gEfiSimpleTextInProtocolGuid
+  gEfiSimpleTextInputExProtocolGuid
+  gEfiDevicePathProtocolGuid

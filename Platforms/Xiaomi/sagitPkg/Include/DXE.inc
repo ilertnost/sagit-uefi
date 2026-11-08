@@ -19,6 +19,15 @@
   INF ArmPkg/Drivers/TimerDxe/TimerDxe.inf
 
   INF MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
+
+!if $(SAGIT_VENDOR_PMIC) == 1
+  # Buttons: the stock PMIC stack feeds the sagit-patched ButtonsDxe, which
+  # publishes the power/volume keys as SimpleTextIn for the boot manager.
+  INF Platforms/Msm8998Binaries/common/Binaries/SPMI/SPMI.inf
+  INF Platforms/Msm8998Binaries/common/Binaries/PmicDxe/PmicDxe.inf
+  INF Platforms/Msm8998Binaries/sagit/PatchedBinaries/ButtonsDxe/ButtonsDxe.inf
+!endif
+
   INF UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   # The XNU loader is part of the firmware: a driver loaded from a volume is
   # refused by the image verification of this build.

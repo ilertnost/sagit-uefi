@@ -80,7 +80,6 @@ READ_LOCK_STATUS   = TRUE
   INF SagitPkg/Drivers/ReportDxe/ReportDxe.inf
 
   # IORT DT
-  INF QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf
 
   !include QcomPkg/Extra.fdf.inc
 

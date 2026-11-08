@@ -18,10 +18,14 @@ STATIC EFI_MEMORY_REGION_DESCRIPTOR gMemoryDescriptor[] = {
   {"TZApps",            0x86D00000, 0x02200000,  NoHob,  SYS_MEM, SYS_MEM_CAP,  Reserv, NS_DEVICE},
   {"HLOS 2",            0x88F00000, 0x01C00000,  NoHob,  SYS_MEM, SYS_MEM_CAP,  Reserv, NS_DEVICE},
   {"PIL_REGION",        0x8AB00000, 0x0B315000,  AddMem, SYS_MEM, SYS_MEM_CAP,  Reserv, UNCACHED_UNBUFFERED_XN},
-  {"HLOS 3",            0x95E15000, 0x075EB000,  AddMem, SYS_MEM, SYS_MEM_CAP,  Conv,   WRITE_BACK_XN},
-  {"Display Reserved",  0x9D400000, 0x02400000,  AddMem, MEM_RES, WRITE_THROUGH,MaxMem, WRITE_THROUGH},
+  /* The Silicium SEC validates that regions do not overlap; the old map
+   * let HLOS 3, DXE Heap and DBI Dump share ranges and relied on the old
+   * MMU builder not caring. Split them: free RAM to the heap, heap up to
+   * the DBI window, DBI up to the display. */
+  {"HLOS 3",            0x95E15000, 0x01DEB000,  AddMem, SYS_MEM, SYS_MEM_CAP,  Conv,   WRITE_BACK_XN},
+  {"DXE Heap",          0x97C00000, 0x05730000,  AddMem, SYS_MEM, SYS_MEM_CAP,  Conv,   WRITE_BACK},
   {"DBI Dump",          0x9D330000, 0x000D0000,  NoHob,  MMAP_IO, INITIALIZED,  Conv,   NS_DEVICE},
-  {"DXE Heap",          0x97C00000, 0x05800000,  AddMem, SYS_MEM, SYS_MEM_CAP,  Conv,   WRITE_BACK},
+  {"Display Reserved",  0x9D400000, 0x02400000,  AddMem, MEM_RES, WRITE_THROUGH,MaxMem, WRITE_THROUGH},
   {"FV Region",         0x9F800000, 0x00200000,  AddMem, SYS_MEM, SYS_MEM_CAP,  BsData, WRITE_BACK_XN},
   {"ABOOT FV",          0x9FA00000, 0x00200000,  AddMem, SYS_MEM, SYS_MEM_CAP,  Reserv, WRITE_BACK_XN},
   {"UEFI FD",           0x9FC00000, 0x00300000,  AddMem, SYS_MEM, SYS_MEM_CAP,  BsData, WRITE_BACK},
@@ -46,7 +50,7 @@ STATIC EFI_MEMORY_REGION_DESCRIPTOR gMemoryDescriptor[] = {
   {"RAM Partition",     0xA0000000, 0x90000000,  AddMem, SYS_MEM, SYS_MEM_CAP,  Conv,   WRITE_BACK_XN},
 
   /* Other memory regions */
-  {"IMEM Base",         0x14680000, 0x00040000,  NoHob,  MMAP_IO, INITIALIZED,  Conv,   NS_DEVICE},
+  {"IMEM Base",         0x14680000, 0x0003F000,  NoHob,  MMAP_IO, INITIALIZED,  Conv,   NS_DEVICE},
   {"IMEM Cookie Base",  0x146BF000, 0x00001000,  AddDev, MMAP_IO, INITIALIZED,  Conv,   NS_DEVICE},
   {"QDSS_STM",          0x16000000, 0x01000000,  AddDev, MMAP_IO, INITIALIZED,  Conv,   NS_DEVICE},
 
