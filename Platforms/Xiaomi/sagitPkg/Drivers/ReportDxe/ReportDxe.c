@@ -25,6 +25,8 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
+#include <Guid/GlobalVariable.h>
+
 #include <SagitKeyInput.h>
 
 #define FDT_STORE_ADDRESS   0x83300000ULL
@@ -79,6 +81,82 @@ PrintButtons (VOID)
   Print (L"spmi protocol: %r\n", Status);
   Status = gBS->LocateProtocol (&mQcomPmAppGuid, NULL, &Proto);
   Print (L"pmic protocol: %r\n", Status);
+}
+
+/**
+  Take one key sample by hand.
+
+  The wait loop below holds the task priority at TPL_HIGH_LEVEL inside
+  gBS->Stall(), where no timer event runs, so the keys are sampled through
+  the driver's own refresh entry point instead.
+**/
+STATIC
+VOID
+SampleKeys (
+  VOID
+  )
+{
+  SAGIT_KEY_STATUS  *Keys;
+
+  if (EFI_ERROR (gBS->LocateProtocol ((EFI_GUID *)&gSagitKeyInputStatusGuid, NULL, (VOID **)&Keys))) {
+    return;
+  }
+
+  if (Keys->Refresh != NULL) {
+    Keys->Refresh (Keys);
+  }
+}
+
+/**
+  Print whether the console input list names the key device.
+
+  A driver that reads the keys but never reaches ConIn is invisible to the
+  menu, and without a serial console the variable is the only place to see
+  the difference.
+**/
+STATIC
+VOID
+PrintConIn (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_GUID    Guid = SAGIT_KEY_DEVICE_PATH_GUID;
+  UINT32      Attributes;
+  UINTN       Size;
+  UINT8       *Buffer;
+  UINTN       At;
+  BOOLEAN     Listed;
+
+  Size   = 0;
+  Listed = FALSE;
+  Status = gRT->GetVariable (L"ConIn", &gEfiGlobalVariableGuid, &Attributes, &Size, NULL);
+  if (Status != EFI_BUFFER_TOO_SMALL) {
+    Print (L"conin: %r\n", Status);
+    return;
+  }
+
+  Buffer = AllocatePool (Size);
+  if (Buffer == NULL) {
+    return;
+  }
+
+  Status = gRT->GetVariable (L"ConIn", &gEfiGlobalVariableGuid, &Attributes, &Size, Buffer);
+  if (EFI_ERROR (Status)) {
+    FreePool (Buffer);
+    Print (L"conin: %r\n", Status);
+    return;
+  }
+
+  for (At = 0; At + sizeof (Guid) <= Size; At++) {
+    if (CompareMem (Buffer + At, &Guid, sizeof (Guid)) == 0) {
+      Listed = TRUE;
+      break;
+    }
+  }
+
+  Print (L"conin: %u bytes, keys listed=%u\n", (UINTN)Size, (UINTN)Listed);
+  FreePool (Buffer);
 }
 
 /**
@@ -490,13 +568,24 @@ OnReadyToBoot (
   PrintStatus ();
   PrintButtons ();
   PrintKeys (FALSE);
+  PrintConIn ();
   PrintFdt ();
   PrintProbe ();
   ScanForPayload ();
   Print (L"=== waiting %u s: press power, volume up, volume down ===\n", DIAG_WAIT_SECONDS);
 
   for (Index = 0; Index < DIAG_WAIT_SECONDS; Index++) {
-    gBS->Stall (1000 * 1000);
+    UINTN  Round;
+
+    //
+    // Sample every 50 ms and show the result once a second: a press that
+    // lasts two samples is visible on the next line.
+    //
+    for (Round = 0; Round < 20; Round++) {
+      gBS->Stall (50 * 1000);
+      SampleKeys ();
+    }
+
     PrintKeys (TRUE);
   }
 }

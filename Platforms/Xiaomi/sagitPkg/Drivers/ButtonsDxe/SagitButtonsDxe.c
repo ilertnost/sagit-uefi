@@ -50,9 +50,6 @@
 #define SAGIT_QUEUE_SIZE       32
 #define SAGIT_FAILURE_LIMIT    50              // consecutive failed reads before polling stops
 
-#define SAGIT_KEY_DEVICE_PATH_GUID \
-  { 0xB1E0C7A4, 0x9D35, 0x4A62, { 0x8C, 0x57, 0x6F, 0x2D, 0x13, 0xE9, 0xB8, 0x04 } }
-
 typedef struct {
   VENDOR_DEVICE_PATH          Vendor;
   EFI_DEVICE_PATH_PROTOCOL    End;
@@ -487,28 +484,37 @@ SagitPush (
   A failed read is not a key release: the last stable state is kept, and
   polling stops after SAGIT_FAILURE_LIMIT consecutive failures so a broken
   arbiter cannot spin forever.
+
+  Runs with interrupts off, so the timer and the boot screen's wait loop can
+  never be inside the arbiter at the same time.
+
+  @param[in] This  The status structure (the published protocol instance).
+
+  @retval EFI_SUCCESS  The sample was taken.
 **/
 STATIC
-VOID
+EFI_STATUS
 EFIAPI
-SagitPoll (
-  IN EFI_EVENT  Event,
-  IN VOID       *Context
+SagitKeyRefresh (
+  IN SAGIT_KEY_STATUS  *This
   )
 {
+  EFI_TPL     Tpl;
   EFI_STATUS  Status;
   UINT8       Levels;
   UINT8       Keys;
 
+  Tpl = gBS->RaiseTPL (TPL_HIGH_LEVEL);
+
   Status = SagitReadLevels (&Levels);
   if (EFI_ERROR (Status)) {
     mFailures++;
-    mStatus.Failures++;
-    mStatus.Sample = 0;
+    This->Failures++;
+    This->Sample = 0;
 
     if (mFailures >= SAGIT_FAILURE_LIMIT) {
       gBS->SetTimer (mTimer, TimerCancel, 0);
-      mStatus.Stage = SAGIT_KEY_STAGE_READ_FAILED;
+      This->Stage = SAGIT_KEY_STAGE_READ_FAILED;
       DEBUG ((
         DEBUG_ERROR,
         "SagitButtons: %u failed reads in a row, polling stopped\n",
@@ -516,12 +522,13 @@ SagitPoll (
         ));
     }
 
-    return;
+    gBS->RestoreTPL (Tpl);
+    return Status;
   }
 
-  mFailures      = 0;
-  mStatus.Sample = Levels;
-  mStatus.Samples++;
+  mFailures    = 0;
+  This->Sample = Levels;
+  This->Samples++;
 
   Keys = SagitDebounce (Levels);
 
@@ -536,6 +543,23 @@ SagitPoll (
   if ((Keys & SAGIT_KEY_SAMPLE_POWER) != 0) {
     SagitPush (SCAN_NULL, CHAR_CARRIAGE_RETURN);
   }
+
+  gBS->RestoreTPL (Tpl);
+  return EFI_SUCCESS;
+}
+
+/**
+  The timer callback: one sample per period.
+**/
+STATIC
+VOID
+EFIAPI
+SagitPoll (
+  IN EFI_EVENT  Event,
+  IN VOID       *Context
+  )
+{
+  SagitKeyRefresh (&mStatus);
 }
 
 /**
@@ -619,6 +643,44 @@ SagitExitBootServices (
 }
 
 /**
+  Check whether a ConIn variable already lists this device.
+
+  The boot manager appends every SimpleTextIn device to ConIn as well; two
+  copies of the same path would make each press arrive twice.
+
+  @param[in] Buffer  The ConIn variable.
+  @param[in] Size    Its size in bytes.
+
+  @retval TRUE  The path is already there.
+**/
+STATIC
+BOOLEAN
+SagitConInListsUs (
+  IN VOID   *Buffer,
+  IN UINTN  Size
+  )
+{
+  UINT8  *Bytes;
+  UINTN  At;
+  UINTN  OurSize;
+
+  Bytes   = Buffer;
+  OurSize = sizeof (mDevicePath);
+
+  if (Size < OurSize) {
+    return FALSE;
+  }
+
+  for (At = 0; At + OurSize <= Size; At++) {
+    if (CompareMem (Bytes + At, &mDevicePath, OurSize) == 0) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
   Name the key device in the ConIn variable.
 
   The console stack only splits the input devices listed there, and nothing
@@ -666,6 +728,11 @@ SagitAddToConIn (
     return Status;
   }
 
+  if (SagitConInListsUs (Old, OldSize)) {
+    FreePool (Old);
+    return EFI_SUCCESS;
+  }
+
   //
   // Drop the end node of the existing list, then append this device (whose
   // path carries its own end node).
@@ -708,10 +775,11 @@ SagitButtonsDxeEntry (
   EFI_STATUS  Status;
 
   ZeroMem (&mStatus, sizeof (mStatus));
-  mStatus.Signature      = SAGIT_KEY_STATUS_SIGNATURE;
-  mStatus.PonApid        = SAGIT_KEY_APID_NONE;
-  mStatus.VolumeUpApid   = SAGIT_KEY_APID_NONE;
-  mStatus.Stage          = SAGIT_KEY_STAGE_NO_ARBITER;
+  mStatus.Signature    = SAGIT_KEY_STATUS_SIGNATURE;
+  mStatus.PonApid      = SAGIT_KEY_APID_NONE;
+  mStatus.VolumeUpApid = SAGIT_KEY_APID_NONE;
+  mStatus.Stage        = SAGIT_KEY_STAGE_NO_ARBITER;
+  mStatus.Refresh      = SagitKeyRefresh;
 
   gBS->InstallMultipleProtocolInterfaces (
          &mStatusHandle,
