@@ -38,6 +38,23 @@ MU_PATH            = Path ("Common/Mu")
 MU_OEM_SAMPLE_PATH = Path ("Common/Mu_OEM_Sample")
 MU_BASECORE_PATH   = Path ("Mu_Basecore")
 
+#
+# Mu_Basecore Patches
+#
+# The list is applied before a build and taken back off after it, so the
+# submodule returns to the commit it is pinned at and "git status" shows only
+# real edits. Every file in Resources/MuPatches has to be listed here: a patch
+# that is not applied builds a firmware that differs from the sources.
+#
+MU_PATCHES = [
+    "AsmMacroLib.patch",
+    "Auth-Service.patch",
+    "Boot-Manager.patch",
+    "Gic-Spurious.patch",
+    "Timer.patch",
+    "Usb-Bus.patch",
+]
+
 @dataclass
 class BuildContext:
     device:            str
@@ -485,7 +502,7 @@ def main ():
     cleanup_old_build (ctx.device, ctx.device_model, ctx.cleanup)
 
     # Remove Mu_Basecore Patches
-    for patch_name in ["AsmMacroLib.patch", "Auth-Service.patch", "Boot-Manager.patch", "Timer.patch", "Usb-Bus.patch"]:
+    for patch_name in MU_PATCHES:
         handle_git_patch (MU_BASECORE_PATH, patch_name, True)
 
     # Update Local Repo
@@ -506,7 +523,7 @@ def main ():
         sys.exit (1)
 
     # Apply Mu_Basecore Patches
-    for patch_name in ["AsmMacroLib.patch", "Auth-Service.patch", "Boot-Manager.patch", "Timer.patch", "Usb-Bus.patch"]:
+    for patch_name in MU_PATCHES:
         if not handle_git_patch (MU_BASECORE_PATH, patch_name, False):
             logger.error (f"Failed to Apply \"{patch_name}\" Git Patch!")
             sys.exit (1)
@@ -518,6 +535,10 @@ def main ():
     # Create Output Image
     if not create_output_image (ctx, config_data, boot_shim_present):
         sys.exit (1)
+
+    # Remove Mu_Basecore Patches
+    for patch_name in MU_PATCHES:
+        handle_git_patch (MU_BASECORE_PATH, patch_name, True)
 
 if __name__ == "__main__":
     main ()
