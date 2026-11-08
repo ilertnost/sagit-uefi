@@ -25,7 +25,11 @@
   #     volume/power keys reach the boot manager as SimpleTextIn. These
   #     drivers do not touch the display pipeline. 0 = Mu only.
   #
-  SAGIT_VENDOR_PMIC              = 1
+  # The stock chain stays off: SPMI.efi publishes no protocol on this
+  # basecore, so PmicDxe never dispatches and no key ever arrives. The keys
+  # come from sagitPkg/Drivers/ButtonsDxe, which reads the arbiter directly.
+  #
+  SAGIT_VENDOR_PMIC              = 0
 
 !include Silicon/QC/Msm8998/Msm8998Pkg.dsc.inc
 
@@ -90,6 +94,7 @@
   UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   DarwinBootPkg/Driver/DarwinBoot.inf
   sagitPkg/Drivers/ReportDxe/ReportDxe.inf
+  sagitPkg/Drivers/ButtonsDxe/SagitButtonsDxe.inf
 
 [LibraryClasses]
   UniXNULib|UniXNUPkg/Library/UniXNULib/UniXNULib.inf

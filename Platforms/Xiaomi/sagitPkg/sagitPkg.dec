@@ -1,0 +1,19 @@
+## @file
+#  Xiaomi Mi 6 (sagit, MSM8998) platform package.
+#
+#  The package declares the one interface its drivers share: the key status
+#  protocol the boot-screen diagnostics read.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+[Defines]
+  DEC_SPECIFICATION              = 0x00010005
+  PACKAGE_NAME                   = sagitPkg
+  PACKAGE_GUID                   = A7C41E68-1F0B-4D39-9B62-8E5A3F27C104
+  PACKAGE_VERSION                = 0.1
+
+[Includes]
+  Include
+
+[Protocols]
+  gSagitKeyInputStatusGuid = { 0x0E9B6A51, 0x2D7C, 0x4F18, { 0xB3, 0xA9, 0x5C, 0x61, 0xD8, 0x4E, 0x27, 0xF0 } }

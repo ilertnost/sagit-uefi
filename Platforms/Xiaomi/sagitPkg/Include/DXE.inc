@@ -28,6 +28,10 @@
   INF Platforms/Msm8998Binaries/sagit/PatchedBinaries/ButtonsDxe/ButtonsDxe.inf
 !endif
 
+  # Keys: our own reader of the SPMI arbiter, so the menu does not depend on
+  # the stock PMIC chain, which does not dispatch here.
+  INF sagitPkg/Drivers/ButtonsDxe/SagitButtonsDxe.inf
+
   INF UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   # The XNU loader is part of the firmware: a driver loaded from a volume is
   # refused by the image verification of this build.

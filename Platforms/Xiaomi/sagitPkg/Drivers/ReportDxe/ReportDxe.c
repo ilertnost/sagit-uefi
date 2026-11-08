@@ -25,6 +25,8 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
+#include <SagitKeyInput.h>
+
 #define FDT_STORE_ADDRESS   0x83300000ULL
 #define PROBE_ADDRESS       0xE0000000ULL
 #define DIAG_WAIT_SECONDS   10
@@ -77,6 +79,64 @@ PrintButtons (VOID)
   Print (L"spmi protocol: %r\n", Status);
   Status = gBS->LocateProtocol (&mQcomPmAppGuid, NULL, &Proto);
   Print (L"pmic protocol: %r\n", Status);
+}
+
+/**
+  Print what the hardware key driver sees.
+
+  Without a serial console this is the only way to tell a dead driver from a
+  key that never reaches the console. The first line names the driver state,
+  the second the arbiter and the pads; LevelsOnly prints the live sample the
+  wait loop below repeats.
+**/
+STATIC
+VOID
+PrintKeys (
+  IN BOOLEAN  LevelsOnly
+  )
+{
+  SAGIT_KEY_STATUS  *Keys;
+  EFI_STATUS        Status;
+
+  Status = gBS->LocateProtocol ((EFI_GUID *)&gSagitKeyInputStatusGuid, NULL, (VOID **)&Keys);
+  if (EFI_ERROR (Status) || (Keys->Signature != SAGIT_KEY_STATUS_SIGNATURE)) {
+    if (!LevelsOnly) {
+      Print (L"keys: driver not loaded (%r)\n", Status);
+    }
+
+    return;
+  }
+
+  if (LevelsOnly) {
+    Print (
+      L"keys: sample=0x%x PWR=%u VOL-=%u VOL+=%u  pon=0x%02x gpio=0x%02x sent=%u\n",
+      (UINTN)Keys->Sample,
+      (UINTN)((Keys->Sample & SAGIT_KEY_SAMPLE_POWER) != 0),
+      (UINTN)((Keys->Sample & SAGIT_KEY_SAMPLE_VOLUME_DOWN) != 0),
+      (UINTN)((Keys->Sample & SAGIT_KEY_SAMPLE_VOLUME_UP) != 0),
+      (UINTN)Keys->PonLevels,
+      (UINTN)Keys->VolumeUpLevels,
+      (UINTN)Keys->Keys
+      );
+    return;
+  }
+
+  Print (
+    L"keys: stage=%u arbiter=0x%08x pon=%u volup=%u\n",
+    (UINTN)Keys->Stage,
+    (UINTN)Keys->ArbiterVersion,
+    (UINTN)Keys->PonApid,
+    (UINTN)Keys->VolumeUpApid
+    );
+  Print (
+    L"keys: pon=0x%02x gpio=0x%02x mode/en=0x%04x samples=%u fail=%u sent=%u\n",
+    (UINTN)Keys->PonLevels,
+    (UINTN)Keys->VolumeUpLevels,
+    (UINTN)Keys->VolumeUpConfig,
+    (UINTN)Keys->Samples,
+    (UINTN)Keys->Failures,
+    (UINTN)Keys->Keys
+    );
 }
 
 STATIC
@@ -419,6 +479,7 @@ OnReadyToBoot (
   )
 {
   EFI_STATUS  Status;
+  UINTN       Index;
 
   Status = gST->ConOut->ClearScreen (gST->ConOut);
   if (EFI_ERROR (Status)) {
@@ -428,12 +489,16 @@ OnReadyToBoot (
   Print (L"=== SAGIT DIAG ===\n");
   PrintStatus ();
   PrintButtons ();
+  PrintKeys (FALSE);
   PrintFdt ();
   PrintProbe ();
   ScanForPayload ();
-  Print (L"=== waiting %u s ===\n", DIAG_WAIT_SECONDS);
+  Print (L"=== waiting %u s: press power, volume up, volume down ===\n", DIAG_WAIT_SECONDS);
 
-  gBS->Stall (DIAG_WAIT_SECONDS * 1000 * 1000);
+  for (Index = 0; Index < DIAG_WAIT_SECONDS; Index++) {
+    gBS->Stall (1000 * 1000);
+    PrintKeys (TRUE);
+  }
 }
 
 EFI_STATUS

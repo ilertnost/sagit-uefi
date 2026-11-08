@@ -18,6 +18,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
+  sagitPkg/sagitPkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -36,6 +37,7 @@
 [Protocols]
   gEfiSimpleTextInProtocolGuid
   gEfiSimpleTextInputExProtocolGuid
+  gSagitKeyInputStatusGuid
 
 [Depex]
   TRUE

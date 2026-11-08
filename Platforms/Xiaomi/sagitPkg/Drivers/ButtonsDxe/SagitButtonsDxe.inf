@@ -1,0 +1,46 @@
+## @file
+#  The Mi 6 power and volume keys as a SimpleTextIn device, read from the
+#  MSM8998 SPMI PMIC arbiter.
+#
+#  Copyright (c) 2026 ilertnost
+#  SPDX-License-Identifier: GPL-3.0-or-later
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = SagitButtonsDxe
+  FILE_GUID                      = 3C8D51A7-64BE-4E29-8F17-2A9B5D07C3E6
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = SagitButtonsDxeEntry
+
+[Sources]
+  SagitButtonsDxe.c
+  SagitSpmiArbiter.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  sagitPkg/sagitPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Protocols]
+  gEfiDevicePathProtocolGuid          ## PRODUCES
+  gEfiSimpleTextInProtocolGuid        ## PRODUCES
+  gSagitKeyInputStatusGuid            ## PRODUCES
+
+[Guids]
+  gEfiEventExitBootServicesGuid       ## CONSUMES
+  gEfiGlobalVariableGuid              ## CONSUMES
+
+[Depex]
+  gEfiTimerArchProtocolGuid AND gEfiVariableArchProtocolGuid AND gEfiVariableWriteArchProtocolGuid
