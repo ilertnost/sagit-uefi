@@ -1,0 +1,32 @@
+#
+# Boot Shim Configs
+#
+[boot_shim]
+requires_kernel_header = true
+
+#
+# UEFI FD Configs: the stock-UEFI region of this SoC generation, the same
+# window the edk2-msm8998 memory map reserves ("UEFI FD", 0x9FC00000, 3 MiB).
+#
+[uefi_fd]
+base = 0x9FC00000
+size = 0x300000
+
+#
+# Android Boot Image Kernel Configs
+#
+[boot_image_kernel]
+kernel_compression = "gzip"
+append_dtb         = true
+
+#
+# Android Boot Image Configs: standard msm8998 layout (kernel 0x10008000,
+# ramdisk 0x11000000, tags 0x10000100), page size 2048.
+#
+[boot_image]
+header_version = 1
+base = 0x10000000
+kernel_offset = 0x00008000
+ramdisk_offset = 0x01000000
+tags_offset = 0x00000100
+pagesize = 2048

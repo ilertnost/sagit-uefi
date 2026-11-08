@@ -1,0 +1,113 @@
+##
+#  Xiaomi Mi 6 (sagit) — Mu-Silicium tree device FDF.
+#
+#  Modeled on shengPkg/sheng.fdf. BootShim carries the ARM64 kernel header;
+#  the FD itself is placed at 0x9FC00000 by the BootShim copy loop, the stock
+#  UEFI region of this SoC generation.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[FD.SILICIUM_UEFI]
+BaseAddress   = $(FD_BASE)|gArmTokenSpaceGuid.PcdFdBaseAddress # The base address of the FLASH Device.
+Size          = $(FD_SIZE)|gArmTokenSpaceGuid.PcdFdSize        # The size in bytes of the FLASH Device
+ErasePolarity = 1
+
+# This one is tricky, it must be: BlockSize * NumBlocks = Size
+BlockSize     = 0x1000
+NumBlocks     = $(FD_BLOCKS)
+
+0x00000000|$(FD_SIZE)
+gArmTokenSpaceGuid.PcdFvBaseAddress|gArmTokenSpaceGuid.PcdFvSize
+FV = FVMAIN_COMPACT
+
+################################################################################
+#
+# FV Section
+#
+################################################################################
+
+[FV.FvMain]
+FvNameGuid         = CD8D4C84-20AD-4073-8A28-3400FAE05941
+BlockSize          = 0x1000
+NumBlocks          = 0        # This FV gets compressed so make it just big enough
+FvAlignment        = 8        # FV alignment and FV attributes setting.
+ERASE_POLARITY     = 1
+MEMORY_MAPPED      = TRUE
+STICKY_WRITE       = TRUE
+LOCK_CAP           = TRUE
+LOCK_STATUS        = TRUE
+WRITE_DISABLED_CAP = TRUE
+WRITE_ENABLED_CAP  = TRUE
+WRITE_STATUS       = TRUE
+WRITE_LOCK_CAP     = TRUE
+WRITE_LOCK_STATUS  = TRUE
+READ_DISABLED_CAP  = TRUE
+READ_ENABLED_CAP   = TRUE
+READ_STATUS        = TRUE
+READ_LOCK_CAP      = TRUE
+READ_LOCK_STATUS   = TRUE
+
+  !include Include/APRIORI.inc
+  !include Include/DXE.inc
+  !include Include/RAW.inc
+
+  # SmBios
+  INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+  INF SiliciumPkg/Drivers/SmBiosTableDxe/SmBiosTableDxe.inf
+
+  # ACPI: the edk2-msm8998 per-device tables, prebuilt by iasl at copy time
+  # (dsdt plus the common FGPA/DBG2/FACP/FACS/GTDT/IORT/MADT/MCFG set).
+  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  FILE FREEFORM = 7E374E25-8E01-4FEE-87F2-390C23C606CD {
+      SECTION RAW = Platforms/Msm8998ACPI/xiaomi/sagit/dsdt.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/BGRT.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/CSRT.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/DBG2.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/FACP.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/FACS.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/GTDT.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/IORT.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/Madt.aml
+      SECTION RAW = Platforms/Msm8998ACPI/Common/build/MCFG.aml
+      SECTION UI = "AcpiTables"
+  }
+
+  # UniXNU
+  INF UniXNUPkg/Application/UniXNU/UniXNU.inf
+  INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
+  INF SagitPkg/Drivers/ReportDxe/ReportDxe.inf
+
+  # IORT DT
+  INF QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf
+
+  !include QcomPkg/Extra.fdf.inc
+
+[FV.FVMAIN_COMPACT]
+FvAlignment        = 8
+ERASE_POLARITY     = 1
+MEMORY_MAPPED      = TRUE
+STICKY_WRITE       = TRUE
+LOCK_CAP           = TRUE
+LOCK_STATUS        = TRUE
+WRITE_DISABLED_CAP = TRUE
+WRITE_ENABLED_CAP  = TRUE
+WRITE_STATUS       = TRUE
+WRITE_LOCK_CAP     = TRUE
+WRITE_LOCK_STATUS  = TRUE
+READ_DISABLED_CAP  = TRUE
+READ_ENABLED_CAP   = TRUE
+READ_STATUS        = TRUE
+READ_LOCK_CAP      = TRUE
+READ_LOCK_STATUS   = TRUE
+
+  INF SiliciumPkg/Sec/Sec.inf
+
+  FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
+    SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
+      SECTION FV_IMAGE = FvMain
+    }
+  }
+
+  !include SiliciumPkg/Common.fdf.inc
