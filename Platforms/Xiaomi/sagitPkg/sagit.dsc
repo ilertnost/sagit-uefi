@@ -99,3 +99,7 @@
 [LibraryClasses]
   UniXNULib|UniXNUPkg/Library/UniXNULib/UniXNULib.inf
   FdtLib|MdePkg/Library/BaseFdtLib/BaseFdtLib.inf
+  # The payload volume travels LZMA-compressed (the Mi 6 bootloader refuses
+  # boot images with a ramdisk section above ~36 MiB); UniXNURamDiskDxe
+  # expands it before publishing the block device.
+  LzmaCustomDecompressLib|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
