@@ -56,6 +56,12 @@ AddInputHandlesToConIn (
 
       Status = gBS->HandleProtocol (Buffer[Handle], &gEfiDevicePathProtocolGuid, (VOID **)&Path);
       if (EFI_ERROR (Status) || (Path == NULL)) {
+        //
+        // Handles without a device path cannot be listed in ConIn; connect
+        // them directly so the console stack (ConPlatformDxe/ConSplitter)
+        // still sees their keys.
+        //
+        gBS->ConnectController (Buffer[Handle], NULL, NULL, TRUE);
         continue;
       }
 
