@@ -32,7 +32,6 @@ class CommonPlatform ():
     PackagesPath = (
         os.path.join(os.environ.get("UNIXNU_ROOT", os.path.join(WorkspaceRoot, "..", "UniXNU")), "package"),
         os.path.join(os.environ.get("UNIXNU_ROOT", os.path.join(WorkspaceRoot, "..", "UniXNU")), "drivers", "DarwinBoot"),
-        os.environ.get("SAGIT_PKG_ROOT", "/data/opencode/unixnu-sagit/firmware"),
         "Platforms/Xiaomi",
         "Platforms",
         "Silicon/Qualcomm",

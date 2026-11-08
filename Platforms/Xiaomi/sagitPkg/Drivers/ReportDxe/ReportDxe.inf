@@ -1,0 +1,41 @@
+## @file
+#  Prints the payload handoff diagnostics on screen before UniXNU starts.
+#
+#  Copyright (c) 2026 ilertnost
+#  SPDX-License-Identifier: GPL-3.0-or-later
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = SagitReportDxe
+  FILE_GUID                      = 7C4A9E21-3B5D-4F80-9D62-1E8A5C3B7F04
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = SagitReportDxeEntry
+
+[Sources]
+  ReportDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  MemoryAllocationLib
+  PrintLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gEfiEventReadyToBootGuid
+
+[Protocols]
+  gEfiSimpleTextInProtocolGuid
+  gEfiSimpleTextInputExProtocolGuid
+
+[Depex]
+  TRUE

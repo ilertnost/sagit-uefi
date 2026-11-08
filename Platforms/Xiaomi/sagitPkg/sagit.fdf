@@ -77,7 +77,7 @@ READ_LOCK_STATUS   = TRUE
   # UniXNU
   INF UniXNUPkg/Application/UniXNU/UniXNU.inf
   INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
-  INF SagitPkg/Drivers/ReportDxe/ReportDxe.inf
+  INF sagitPkg/Drivers/ReportDxe/ReportDxe.inf
 
   # IORT DT
 

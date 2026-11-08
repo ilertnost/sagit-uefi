@@ -89,7 +89,7 @@
   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
   UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   DarwinBootPkg/Driver/DarwinBoot.inf
-  SagitPkg/Drivers/ReportDxe/ReportDxe.inf
+  sagitPkg/Drivers/ReportDxe/ReportDxe.inf
 
 [LibraryClasses]
   UniXNULib|UniXNUPkg/Library/UniXNULib/UniXNULib.inf
