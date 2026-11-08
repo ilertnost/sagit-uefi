@@ -85,6 +85,15 @@
   #
   ConfigurationMapLib|sagitPkg/Library/ConfigurationMapLib/ConfigurationMapLib.inf
 
+[LibraryClasses.common.DXE_DRIVER]
+  #
+  # The Silicium default maps ExtractGuidedSectionLib to the PrePi instance,
+  # whose constructor builds a HOB and asserts under DxeHobLib. UniXNU's
+  # ramdisk driver links the LZMA decompressor, which needs the class, so
+  # DXE drivers here get the DXE instance DxeCore itself uses.
+  #
+  ExtractGuidedSectionLib|MdePkg/Library/DxeExtractGuidedSectionLib/DxeExtractGuidedSectionLib.inf
+
 [Components]
   #
   # UniXNU boot manager + DarwinBoot XNU loader
