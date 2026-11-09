@@ -51,7 +51,6 @@ MU_PATCHES = [
     "Auth-Service.patch",
     "Boot-Manager.patch",
     "Gic-Spurious.patch",
-    "Lzma-Scratch.patch",
     "Timer.patch",
     "Usb-Bus.patch",
 ]
