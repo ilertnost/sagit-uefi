@@ -31,6 +31,12 @@
   #
   SAGIT_VENDOR_PMIC              = 0
 
+  #
+  # 1 = bare Mu-Silicium: no UniXNU loader, no UniXNU DXE, no ramdisk driver
+  #     and no DarwinBoot. BDS, SimpleFb, Buttons, USB and ACPI stay in.
+  #
+  SAGIT_BARE                     = 0
+
 !include Silicon/QC/Msm8998/Msm8998Pkg.dsc.inc
 
 [PcdsFixedAtBuild]
@@ -95,6 +101,7 @@
   ExtractGuidedSectionLib|MdePkg/Library/DxeExtractGuidedSectionLib/DxeExtractGuidedSectionLib.inf
 
 [Components]
+!if $(SAGIT_BARE) == 0
   #
   # UniXNU boot manager + DarwinBoot XNU loader
   #
@@ -102,6 +109,8 @@
   UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
   UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   DarwinBootPkg/Driver/DarwinBoot.inf
+!endif
+
   sagitPkg/Drivers/ReportDxe/ReportDxe.inf
   sagitPkg/Drivers/ButtonsDxe/SagitButtonsDxe.inf
 

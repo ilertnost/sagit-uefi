@@ -32,10 +32,12 @@
   # the stock PMIC chain, which does not dispatch here.
   INF sagitPkg/Drivers/ButtonsDxe/SagitButtonsDxe.inf
 
+!if $(SAGIT_BARE) == 0
   INF UniXNUPkg/Driver/UniXNURamDiskDxe/UniXNURamDiskDxe.inf
   # The XNU loader is part of the firmware: a driver loaded from a volume is
   # refused by the image verification of this build.
   INF DarwinBootPkg/Driver/DarwinBoot.inf
+!endif
   INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   INF MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   INF FatPkg/EnhancedFatDxe/Fat.inf

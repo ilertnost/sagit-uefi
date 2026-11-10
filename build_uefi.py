@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
 
 from pathlib import Path
 from dataclasses import dataclass
@@ -63,6 +66,7 @@ class BuildContext:
     enable_secureboot: bool
     cleanup:           bool
     update:            bool
+    bare:              bool
 
 def setup_logger ():
     global logger
@@ -97,6 +101,7 @@ def parse_arguments () -> BuildContext:
     parser.add_argument ("-s", "--enable-secureboot", action="store_true",                                       help="Enables Secure Boot.")
     parser.add_argument ("-c", "--clean",             action="store_true",                                       help="Removes Old Build Files and Starts a Clean Build.")
     parser.add_argument ("-u", "--update",            action="store_true",                                       help="Updates your Local Repo before Building.")
+    parser.add_argument ("--bare",                    action="store_true",                                       help="Builds Mu only: no UniXNU loader, ramdisk or DarwinBoot.")
 
     # Parse Script Arguments
     args = parser.parse_args ()
@@ -108,7 +113,8 @@ def parse_arguments () -> BuildContext:
         build_mode        = args.release,
         enable_secureboot = args.enable_secureboot,
         cleanup           = args.clean,
-        update            = args.update
+        update            = args.update,
+        bare              = args.bare
     )
 
 def get_device_package_path (device: str) -> Path | None:
@@ -248,6 +254,9 @@ def compile_uefi (ctx: BuildContext, fd_config: dict, script_path: Path) -> bool
         f"DEVICE_MODEL={ctx.device_model}"
     ]
 
+    if ctx.bare:
+        cmd.append ("BLD_*_SAGIT_BARE=1")
+
     # Compile UEFI
     return subprocess.run (cmd).returncode == 0
 
@@ -338,14 +347,23 @@ def create_android_boot_img (ctx: BuildContext, image_kernel_config: dict, image
         logger.error (f"The \"mkbootimg.py\" Script is Missing in \"{RESOURCE_SCRIPTS_PATH}\"!")
         return False
 
+    # A bare build carries no UniXNU payload. Keep an empty ramdisk section so
+    # the Android boot image layout stays identical to the normal image.
+    if ctx.bare:
+        ramdisk = device_pkg_path / "ramdisk-bare"
+        ramdisk.write_bytes (b"")
+    else:
+        ramdisk = Path ("Resources/ramdisk")
+
     # Set Output File Name
-    output_file_name = f"Mu-{ctx.device}-{ctx.device_model}.img" if add_output_suffix else f"Mu-{ctx.device}.img"
+    bare_suffix = "-bare" if ctx.bare else ""
+    output_file_name = f"Mu-{ctx.device}{bare_suffix}-{ctx.device_model}.img" if add_output_suffix else f"Mu-{ctx.device}{bare_suffix}.img"
 
     # Set Base mkbootimg Command
     cmd = [
         sys.executable, str (mkbootimg),
         "--kernel",     str (android_kernel),
-        "--ramdisk",    "Resources/ramdisk",
+        "--ramdisk",    str (ramdisk),
         "-o",           output_file_name
     ]
 
@@ -379,7 +397,8 @@ def create_android_boot_img (ctx: BuildContext, image_kernel_config: dict, image
 
 def create_payload_file (ctx: BuildContext, payload_config: dict, append_boot_shim: bool, add_output_suffix: bool) -> bool:
     # Set Output File Name
-    output_file_name = f"Mu-{ctx.device}-{ctx.device_model}.bin" if add_output_suffix else f"Mu-{ctx.device}.bin"
+    bare_suffix = "-bare" if ctx.bare else ""
+    output_file_name = f"Mu-{ctx.device}{bare_suffix}-{ctx.device_model}.bin" if add_output_suffix else f"Mu-{ctx.device}{bare_suffix}.bin"
 
     # Set Base Paths
     device_pkg_path = BUILD_PATH      / f"{ctx.device}Pkg"
